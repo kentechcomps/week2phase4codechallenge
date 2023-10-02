@@ -5,6 +5,7 @@ from wsgiref import validate
 from datetime import datetime
 
 from sqlalchemy_serializer import SerializerMixin
+
 from sqlalchemy.orm import validates 
 
 metadata = MetaData(naming_convention={
@@ -46,7 +47,7 @@ class Heropower(db.Model , SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     hero_id = db.Column(db.Integer, db.ForeignKey('hero.id'))
     power_id = db.Column(db.Integer, db.ForeignKey('power.id'))
-
+    strength = db.Column(db.String)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 

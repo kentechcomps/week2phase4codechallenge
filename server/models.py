@@ -37,7 +37,13 @@ class Power(db.Model, SerializerMixin):
 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
-
+    
+    @validates('description')
+    def validatedescription(self , key , description):
+        if len(description) < 20:
+            raise ValueError("Must be at least 20 characters long.")
+        
+        return description
 
     
     serialize_rules = ('-Heropower.power',)
@@ -51,7 +57,12 @@ class Heropower(db.Model , SerializerMixin):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-
+    @validates('strength')
+    def validatestrenght(self , key ,strength):
+        validstrength = ['Strong' , 'Weak' , 'Average']
+        if strength not in validstrength:
+            raise ValueError("Invalid strenth value.Strenght must be 'Strong" , 'Weak' , 'Average')
+        return strength
     
     serialize_rules = ('-hero.Heropower', '-power.Heropower',)
 

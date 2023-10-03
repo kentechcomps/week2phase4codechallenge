@@ -2,7 +2,7 @@
 import random
 
 from app import app
-from models import db , Hero , Heropower , Power
+from models import db , Hero , HeroPower , Power
 
 
 
@@ -10,7 +10,7 @@ from models import db , Hero , Heropower , Power
 with app.app_context():
 
     Hero.query.delete()
-    Heropower.query.delete()
+    HeroPower.query.delete()
     Power.query.delete()
     
     powers_data = [
@@ -57,6 +57,6 @@ with app.app_context():
         
         for power in selected_powers:
             strength = random.choice(strengths)
-            hero_power = Heropower(hero=hero, power=power, strength=strength)
+            hero_power = HeroPower(hero=hero, power=power, strength=strength)
             db.session.add(hero_power)
     db.session.commit()

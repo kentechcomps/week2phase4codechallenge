@@ -6,8 +6,17 @@ function Home() {
 
   useEffect(() => {
     fetch("/heroes")
-      .then((r) => r.json())
-      .then(setHeros);
+      .then((r) => {
+        if(!r.ok){
+          throw new Error(`Network response was not ok: ${r.status}`)
+        }
+        return r.json()
+      })
+        
+      .then((data) =>{
+        setHeros(data)
+      });
+       
   }, []);
 
   return (

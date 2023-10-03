@@ -14,55 +14,63 @@ metadata = MetaData(naming_convention={
 
 db = SQLAlchemy(metadata=metadata)
 
-class Hero(db.Model , SerializerMixin):
-    __tablename__ = 'hero'
+
+class Hero(db.Model, SerializerMixin):
+    __tablename__ = 'heroes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String)
+    super_name = db.Column(db.String)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    hero_power = db.relationship('HeroPower', backref='hero')
+    
+    serialize_rules = ('-hero_powers',)
+    
+    def __repr__(self):
+        return f'<Hero {self.id}: {self.super_name}>'
+
+class Power(db.Model, SerializerMixin):
+    __tablename__ = 'powers'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255))
-    super_name = db.Column(db.String)
-    power = db.relationship('Heropower', backref='hero')
-
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
-
-
-    serialize_rules = ('-Heropower.hero',)
-class Power(db.Model, SerializerMixin):
-    __tablename__ = 'power'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255))
+    name = db.Column(db.String)
     description = db.Column(db.String)
-    hero = db.relationship('Heropower', backref='power')
-
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    hero_power = db.relationship('HeroPower', backref ='power')
+    
+    serialize_rules = ('-hero_powers',)
     
     @validates('description')
-    def validatedescription(self , key , description):
-        if len(description) < 20:
-            raise ValueError("Must be at least 20 characters long.")
-        
-        return description
-
+    def validate_description(self, key, body):
+        if len(body) <20:
+            raise ValueError('description must be at least 20 characters')
+        return body
     
-    serialize_rules = ('-Heropower.power',)
-class Heropower(db.Model , SerializerMixin):
-    __tablename__ = 'Heropower'
+    def __repr__(self):
+        return f'<Power {self.id}: {self.name}; {self.description}>'
 
+
+class HeroPower(db.Model, SerializerMixin):
+    __tablename__ = 'hero_powers'
+    
     id = db.Column(db.Integer, primary_key=True)
-    hero_id = db.Column(db.Integer, db.ForeignKey('hero.id'))
-    power_id = db.Column(db.Integer, db.ForeignKey('power.id'))
     strength = db.Column(db.String)
-    created_at = db.Column(db.DateTime, server_default=db.func.now())
-    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
-
-    @validates('strength')
-    def validatestrenght(self , key ,strength):
-        validstrength = ['Strong' , 'Weak' , 'Average']
-        if strength not in validstrength:
-            raise ValueError("Invalid strenth value.Strenght must be 'Strong" , 'Weak' , 'Average')
-        return strength
+    hero_id = db.Column(db.Integer, db.ForeignKey('heroes.id'), nullable=False)
+    power_id = db.Column(db.Integer, db.ForeignKey('powers.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
-    serialize_rules = ('-hero.Heropower', '-power.Heropower',)
-
+    serialize_rules = ('hero', '-power' )
+    
+    @validates('strength')
+    def validate_strength(self, key, value):
+        if value not in ['Strong', 'Weak', 'Average']:
+            raise ValueError('Invalid strength')
+        return value
+    
+    def __repr__(self):
+        return f'<Hero-Power {self.id}: {self.strength} {self.hero_id} {self.power_id}>'

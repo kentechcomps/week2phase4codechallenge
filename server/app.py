@@ -3,7 +3,8 @@
 from flask import Flask, make_response , jsonify , request
 from flask_migrate import Migrate
 from flask_restful import Api ,Resource
-from models import db, Hero , Power , Heropower , validatedescription , validatestrenght
+from flask_cors import CORS
+from models import db, Hero , Power , HeroPower
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
@@ -11,9 +12,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 migrate = Migrate(app, db)
 
+CORS(app)
+
 db.init_app(app)
 
 api =Api(app)
+
 @app.route('/')
 def index():
     return make_response(
@@ -26,7 +30,11 @@ def get_heroes():
     herolist = []
      
     for hero in heros:
-        herodata = hero.to_dict()
+        herodata ={
+            "id" : hero.id ,
+            "name" : hero.name ,
+            "super_name" : hero.name
+        }
         herolist.append(herodata)
 
     return jsonify(herolist)
@@ -35,7 +43,13 @@ class HeroByID(Resource):
 
     def get(self, id):
 
-        response_dict = Hero.query.filter_by(id=id).first().to_dict()
+        responseobj= Hero.query.filter_by(id=id).first()
+        response_dict = {
+            "id" : responseobj.id ,
+            "name" : responseobj.name ,
+            "super_name" : responseobj.name
+
+        }
         if response_dict is None:
             return jsonify({'error': 'Hero not found'}) , 404
         response = make_response(
@@ -54,7 +68,11 @@ def get_powers():
     powerlist= []
      
     for power in powers:
-        powerdata = power.to_dict()
+        powerdata = {
+          "id" : power.id ,
+          "name" : power.name ,
+          "description" : power.description  
+        }
         powerlist.append(powerdata)
 
     return jsonify(powerlist)
@@ -63,7 +81,12 @@ class PowerByID(Resource):
 
     def get(self, id):
 
-        response_dict = Power.query.filter_by(id=id).first().to_dict()
+        response_dictobject = Power.query.filter_by(id=id).first()
+        response_dict = {
+            "id" : response_dictobject.id ,
+            "name" : response_dictobject.name ,
+            "description" : response_dictobject.description
+        }
         if response_dict is None:
             return jsonify({'error': 'Power not found'}) , 404
         response = make_response(
@@ -76,78 +99,91 @@ class PowerByID(Resource):
 api.add_resource(PowerByID, '/powers/<int:id>')
 
 @app.route('/powers/<int:id>', methods=['PATCH'])
-def update_power(id):
-    power = Power.query.get(id)
+def patch_power(id):
+    try:
 
-    if power is None:
-        return jsonify({'error': 'Power not found'}), 404
+        power = Power.query.filter_by(id=id).first()
+        print(power)
 
-    # Parse the request JSON data
-    data = request.get_json()
+        if power:
+            data = request.get_json()
 
-    # Update the power's description if provided
-    if 'description' in data:
-        power.description = data['description']
+            if 'description' in data:
+                try:
+                    description = data['description']
+                    power.validate_description('description', description)
+                except Exception as ve:
+                    response_body = {"error":str(ve)}
+                    return make_response(jsonify(response_body), 400)
 
-    # Validate the updated power
-    validation_errors = validatedescription(power)
+            for key, value in data.items():
+                setattr(power, key, value)
 
-    if validation_errors:
-        return jsonify({'errors': validation_errors}), 400
+                db.session.add(power)
+                db.session.commit()
 
-    # Commit changes to the database
-    db.session.commit()
+                patched_power = {
+                "id": power.id,
+                "name": power.name,
+                "description": power.description,
+                }
+                
+                response = make_response(
+                    jsonify(patched_power),
+                    200
+                )
 
-    # Serialize the updated power into JSON
-    updated_power_data = {
-        'id': power.id,
-        'name': power.name,
-        'description': power.description
-    }
+            return response
 
-    return jsonify(updated_power_data) , 200
-
-@app.route('/hero_powers', methods=['POST'])
-def create_hero_power():
-    # Parse the request JSON data
-    data = request.get_json()
-
-    # Create a new HeroPower instance
-    hero_power = Heropower(
-        hero_id=data.get('hero_id'),
-        power_id=data.get('power_id'),
-        strength=data.get('strength')
-    )
-
-      # Validate the HeroPower instance
-    validation_errors = validatestrenght(hero_power)
-
-    if validation_errors:
-        return jsonify({'errors': validation_errors}), 400
+        else:
+            response_body = {"error":"Power Not Found"}
+            return make_response(jsonify(response_body), 404)
+    except Exception as e:
+        app.logger.error(f"Error in PatchPower {str(e)}")
+        return make_response({"error": "Serialization Error"}, 500)
     
-    db.session.add(hero_power)
-    db.session.commit()
+@app.route('/hero_powers', methods=['POST'])
+def post_hero_power(app):
+    try:
+        data = request.json
 
-    hero = Hero.query.get(hero_power.hero_id)
+        if 'strength' in data:
+            try:
+                strength = data['strength']
+                HeroPower.validate_strength(None, 'strength', strength)
+            except Exception as ve:
+                response_body = {"error": str(ve)}
+                return make_response(jsonify(response_body), 400)
 
-    if hero is None:
-        return jsonify({'error': 'Hero not found'}), 404
-     
-    hero_data = {
-        'id': hero.id,
-        'name': hero.name,
-        'super_name': hero.super_name,
-        'powers': [
-            {
-                'id': power.id,
-                'name': power.name,
-                'description': power.description
-            }
-            for power in hero.hero_powers
-        ]
-    }
+        hero = Hero.query.get(data.get('hero_id'))
+        power = Power.query.get(data.get('power_id'))
 
-    return jsonify(hero_data) , 201
+        if not hero:
+            response_body = {"error": "Hero with specified ID not found"}
+            return make_response(jsonify(response_body), 404)
+
+        if not power:
+            response_body = {"error": "Power with the specified ID not found"}
+            return make_response(jsonify(response_body), 404)
+
+        new_hero_power = HeroPower(
+            strength=data.get('strength'),
+            hero_id=data.get('hero_id'),
+            power_id=data.get('power_id')
+        )
+
+        db.session.add(new_hero_power)
+        db.session.commit()
+
+        created_HeroPowerdata = HeroPower.query.get(new_hero_power.id)
+        
+        response_body = {"message": "HeroPower created successfully", "data": created_HeroPower.to_dict()}
+        return make_response(jsonify(response_body), 201)
+
+    except Exception as e:
+        app.logger.error(f"Error in post_hero_power: {str(e)}")
+        response_body = {"error": "Serialization Error"}
+        return make_response(jsonify(response_body), 500)
 
 if __name__ == '__main__':
     app.run(port=5555)

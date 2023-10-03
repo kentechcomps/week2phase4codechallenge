@@ -3,12 +3,13 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
-[packages]
+
 [packages]
 faker = "*"
 flask = "*"
 flask-migrate = "*"
 flask-restful = "*"
+flask-cors = "*"
 flask-sqlalchemy = "*"
 importlib-metadata = "*"
 importlib-resources = "*"
